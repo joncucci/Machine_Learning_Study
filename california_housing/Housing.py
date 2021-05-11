@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[30]:
+# In[4]:
 
 
 # Collects needed data in csv file
@@ -23,7 +23,7 @@ def fetch_housing_data(housing_url = HOUSING_URL , housing_path = HOUSING_PATH):
     housing_tgz.close()
 
 
-# In[31]:
+# In[5]:
 
 
 import pandas as pd
@@ -36,7 +36,7 @@ housing = load_housing_data()
 housing.head()
 
 
-# In[32]:
+# In[6]:
 
 
 import numpy as np
@@ -68,13 +68,13 @@ print(len(train_set))
 print(len(test_set))
 
 
-# In[33]:
+# In[7]:
 
 
 housing.info()
 
 
-# In[34]:
+# In[8]:
 
 
 housing["ocean_proximity"].value_counts()
@@ -82,7 +82,7 @@ housing["ocean_proximity"].value_counts()
 housing.describe()
 
 
-# In[35]:
+# In[9]:
 
 
 # %matplotlib inline
@@ -94,7 +94,7 @@ housing["income_cat"] = pd.cut(housing["median_income"], bins = [0., 1.5, 3.0, 4
 housing["income_cat"].hist()
 
 
-# In[37]:
+# In[10]:
 
 
 from sklearn.model_selection import StratifiedShuffleSplit
@@ -110,7 +110,7 @@ for train_index, test_index in split.split(housing, housing["income_cat"]):
 #    set_.drop("income_cat", axis = 1, inplace= True)
 
 
-# In[38]:
+# In[11]:
 
 
 housing = strat_train_set.copy()
@@ -124,7 +124,7 @@ housing.plot(kind="scatter", x="longitude", y="latitude", alpha=0.4,
 plt.legend()
 
 
-# In[39]:
+# In[12]:
 
 
 housing["rooms_per_household"] = housing["total_rooms"] / housing["households"]
@@ -135,7 +135,7 @@ corr_matrix = housing.corr()
 corr_matrix["median_house_value"].sort_values(ascending = False)
 
 
-# In[40]:
+# In[13]:
 
 
 from pandas.plotting import scatter_matrix
@@ -145,7 +145,7 @@ attributes = ["median_house_value", "median_income", "total_rooms", "housing_med
 housing.plot(kind = "scatter", x = "median_income", y = "median_house_value", alpha = 0.1)
 
 
-# In[41]:
+# In[14]:
 
 
 # Prep for ML Algorithms
@@ -166,14 +166,14 @@ housing_tr = pd.DataFrame(X, columns = housing_num.columns, index = housing_num.
 housing_tr
 
 
-# In[42]:
+# In[15]:
 
 
 housing_cat = housing[["ocean_proximity"]]
 housing_cat.head(10)
 
 
-# In[43]:
+# In[16]:
 
 
 from sklearn.preprocessing import OrdinalEncoder
@@ -182,7 +182,7 @@ housing_cat_encoded = ordinal_encoder.fit_transform(housing_cat)
 housing_cat_encoded[:10]
 
 
-# In[44]:
+# In[17]:
 
 
 from sklearn.preprocessing import OneHotEncoder
@@ -191,7 +191,7 @@ housing_cat_1hot = cat_encoder.fit_transform(housing_cat)
 housing_cat_1hot.toarray()
 
 
-# In[45]:
+# In[18]:
 
 
 from sklearn.base import BaseEstimator, TransformerMixin
@@ -215,7 +215,7 @@ attr_adder = CombinedAttributesAdder(add_bedrooms_per_room=False)
 housing_extra_attribs = attr_adder.transform(housing.values)
 
 
-# In[47]:
+# In[19]:
 
 
 from sklearn.pipeline import Pipeline
@@ -232,7 +232,7 @@ num_pipeline = Pipeline([
 housing_num_tr = num_pipeline.fit_transform(housing_num)
 
 
-# In[48]:
+# In[20]:
 
 
 from sklearn.compose import ColumnTransformer
@@ -247,6 +247,115 @@ full_pipeline = ColumnTransformer([
 ])
 
 housing_prepared = full_pipeline.fit_transform(housing)
+
+
+# In[21]:
+
+
+from sklearn.linear_model import LinearRegression
+
+lin_reg = LinearRegression()
+lin_reg.fit(housing_prepared, housing_labels)
+
+some_data = housing.iloc[:5]
+some_labels = housing_labels.iloc[:5]
+some_data_prepared = full_pipeline.transform(some_data)
+
+#Not accurate, first prediction off by 40%
+print("Predictions:", lin_reg.predict(some_data_prepared), '\n')
+print("Labels:", list(some_labels))
+
+
+# In[22]:
+
+
+from sklearn.metrics import mean_squared_error
+
+housing_predictions = lin_reg.predict(housing_prepared)
+lin_mse = mean_squared_error(housing_labels, housing_predictions)
+lin_rmse = np.sqrt(lin_mse)
+print(lin_rmse)
+
+
+# In[23]:
+
+
+from sklearn.tree import DecisionTreeRegressor
+
+tree_reg = DecisionTreeRegressor()
+tree_reg.fit(housing_prepared, housing_labels)
+
+housing_predictions = tree_reg.predict(housing_prepared)
+tree_mse = mean_squared_error(housing_labels, housing_predictions)
+tree_rmse = np.sqrt(tree_mse)
+print(tree_rmse)
+
+
+# In[24]:
+
+
+from sklearn.model_selection import cross_val_score
+
+scores = cross_val_score(tree_reg, housing_prepared, housing_labels, scoring = "neg_mean_squared_error", cv = 10)
+
+tree_rmse_scores = np.sqrt(-scores)
+
+def display_scores(scores):
+    print("Scores:", scores)
+    print("Mean:", scores.mean())
+    print("Standard Deviation:", scores.std())
+    
+display_scores(tree_rmse_scores)
+
+
+# In[25]:
+
+
+lin_scores = cross_val_score(lin_reg, housing_prepared, housing_labels, scoring = "neg_mean_squared_error", cv = 10)
+lin_rmse_scores = np.sqrt(-lin_scores)
+display_scores(lin_rmse_scores)
+
+
+# In[ ]:
+
+
+from sklearn.ensemble import RandomForestRegressor
+
+forest_reg = RandomForestRegressor()
+forest_reg.fit(housing_prepared, housing_labels)
+housing_predictions = forest_reg.predict(housing_prepared)
+'''
+forest_mse = mean_squared_error(housing_labels, housing_predictions)
+forest_rmse = np.sqrt(forest_mse)
+'''
+print("work1")
+forest_score = cross_val_score(forest_reg, housing_prepared, housing_labels, scoring = "neg_mean_squared_error", cv = 10)
+forest_rmse_scores = np.sqrt(-forest_scores)
+display_scores(forest_rmse_scores)
+print("work")
+
+
+# In[28]:
+
+
+from sklearn.model_selection import GridSearchCV
+
+param_grid = [
+    {'n_estimators' : [3, 10, 30], 'max_features': [2, 4, 6, 8]}, 
+    {'bootstrap' : [False], 'n_estimators': [3, 10], 'max_features': [2, 3, 4]},
+]
+
+forest_reg = RandomForestRegressor()
+
+grid_search = GridSearchCV(forest_reg, param_grid, cv = 5, scoring = 'neg_mean_squared_error', return_train_score=True)
+grid_search.fit(housing_prepared, housing_labels)
+grid_search.best_params_
+
+
+# In[ ]:
+
+
+print("hello?")
 
 
 # In[ ]:
